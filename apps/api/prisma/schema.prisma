@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model SiteProfile {
+  id            String   @id @default(uuid())
+  domainPattern String   // Regex or substring to match URL
+  name          String
+  selectorMap   String?  // JSON string of SelectorMap
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  sessions      TestSession[]
+}
+
+model TestSession {
+  id              String       @id @default(uuid())
+  siteProfileId   String?
+  siteProfile     SiteProfile? @relation(fields: [siteProfileId], references: [id])
+  
+  sourceLoginUrl  String
+  sourceTestUrl   String
+  status          String       // PENDING, RUNNING, DONE, FAILED
+  errorMessage    String?
+  topic           String?
+  testName        String?
+  includeExplanation Boolean @default(true)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  questions       Question[]
+  crawlJobs       CrawlJob[]
+}
+
+model Question {
+  id            String      @id @default(uuid())
+  testSessionId String
+  testSession   TestSession @relation(fields: [testSessionId], references: [id], onDelete: Cascade)
+  
+  indexNumber   Int
+  questionText  String
+  explanation   String?
+  hash          String      // Unique hash per session to dedupe
+  
+  choices       Choice[]
+
+  @@unique([testSessionId, indexNumber])
+}
+
+model Choice {
+  id          String   @id @default(uuid())
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  label       String?
+  text        String
+  isCorrect   Boolean
+}
+
+model CrawlJob {
+  id            String      @id @default(uuid())
+  testSessionId String
+  testSession   TestSession @relation(fields: [testSessionId], references: [id], onDelete: Cascade)
+  
+  status        String      // PENDING, RUNNING, DONE, FAILED
+  progress      Int         @default(0)
+  step          String      @default("INIT")
+  errorMessage  String?
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
